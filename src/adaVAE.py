@@ -20,14 +20,13 @@ from data import ConditionalGenerationDataset, GenerationDataset, GLUEPretrainin
 import datetime
 
 from torch.utils.data import Dataset, DataLoader
-from apex.optimizers import FusedAdam
-from apex import amp
-from apex.fp16_utils import FP16_Optimizer
+from torch.cuda import amp
 from transformers.modeling_utils import PreTrainedModel, Conv1D, prune_conv1d_layer, SequenceSummary
 from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Config, AdamW, get_linear_schedule_with_warmup, Conv1D
 
 
 parser = argparse.ArgumentParser()
+scaler = amp.GradScaler()
 
 # Default parameters are set based on single GPU training
 parser.add_argument('--lr', type=float, default=5e-5)
@@ -137,7 +136,6 @@ parser.add_argument('--finetune_enc', help="whether to fine-tune encoder, if Tru
 parser.add_argument('--finetune_dec', help="whether to fine-tune decoder, if True, no adapter added in decoder",
                     action="store_true")
 
-cache_dir = '/home/tuhq/.cache/torch/transformers'
 
 def compute_loss(device, model, x_tokens, input_tokens, att_mask, loss_fn, beta, kl_rate, reg_loss, weighted_sample=False, from_mean=False, fb=1):
     """
@@ -228,12 +226,11 @@ def train_step(device, model, optimizer, x_tokens, input_tokens, att_mask, loss_
     optimizer.zero_grad()
     loss, ce_loss, reg_loss, _, _ = compute_loss(device, model, x_tokens, input_tokens, att_mask, loss_fn,
                                           beta, kl_rate, reg_loss_type, weighted_sample=False, from_mean=from_mean, fb=fb)
-    with amp.scale_loss(loss, optimizer) as scaled_loss:
-        scaled_loss.backward()
-        torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), 1.0)  # max_grad_norm=1.0
-    # loss.backward()
-    # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0) # max_grad_norm=1.0
-    optimizer.step()
+    scaler.scale(loss).backward()
+    scaler.unscale_(optimizer)
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)  # max_grad_norm=1.0
+    scaler.step(optimizer)
+    scaler.update()
     # output.append((loss.item(), ce_loss.mean().item(), reg_loss.item()))
     if reg_loss_type == "adversarial":
         ## reg_loss: [discriminator loss, generator loss, KL loss]
@@ -355,12 +352,12 @@ def train(args):
                                tune_dec=args.finetune_dec,
                                add_z2adapters=args.add_z2adapters)
 
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2', cache_dir=cache_dir)
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
 
     # Hack to allow tokenizing longer sequences.
     # tokenizer.max_len = int(1e12)
     if args.from_optimus is None:
-        gpt2_model = GPT2LMHeadModel.from_pretrained('gpt2', cache_dir=cache_dir)
+        gpt2_model = GPT2LMHeadModel.from_pretrained('gpt2')
         tokenizer.pad_token = tokenizer.eos_token
     else:
         logging.info("Loading Pre-trained weights from Optimus GPT-2")
@@ -491,8 +488,6 @@ def train(args):
 
     optimizer = AdamW(AdaVAE.parameters(), lr=args.lr, correct_bias=True)
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_schedule)
-    AdaVAE, optimizer = amp.initialize(AdaVAE, optimizer, opt_level=args.fp16_opt_level)
-
     ## load ckpt
     if args.load:
         logging.info('Loading model weights...')

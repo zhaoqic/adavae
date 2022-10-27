@@ -7,17 +7,12 @@
 @feature: #Enter features here
 """
 import random, re, os
-# from data.prompt_dataset import *
-# from data.plot_dataset import *
-# from data.arxiv_dataset import *
-# from data.yelp_dataset import *
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import torch.utils.data as data
 from torch.utils.data.distributed import DistributedSampler
 import functools
-from rake_nltk import Rake
 import urllib, sys
 import urllib.request
 import json, re
@@ -25,7 +20,6 @@ import numpy as np
 import copy
 import math
 from tqdm import tqdm
-from scipy.spatial.distance import cdist
 from tqdm import trange
 from random import shuffle
 

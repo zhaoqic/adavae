@@ -114,8 +114,8 @@ def train(args):
     logging.info('Loading models...')
 
     config = GPT2Config()
-    gpt2_model = GPT2LMHeadModel.from_pretrained('gpt2', cache_dir='/home/tuhq/.cache/torch/transformers')
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2', cache_dir='/home/tuhq/.cache/torch/transformers')
+    gpt2_model = GPT2LMHeadModel.from_pretrained('gpt2')
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
     tokenizer.pad_token = tokenizer.eos_token
 
     model = Oracle_Classifier(config, args.class_num, wte=gpt2_model.transformer.wte)

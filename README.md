@@ -11,7 +11,6 @@ transformers==3.1.0
 torch
 tensorboard
 tqdm
-apex [from https://github.com/NVIDIA/apex]
 nltk
 ```
 
