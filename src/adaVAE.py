@@ -34,7 +34,7 @@ parser.add_argument("--seed", type=int, default=42)
 
 parser.add_argument('--model_type', type=str, default='cvae', choices=['cvae', 'vqvae', 'daae'])
 parser.add_argument('--iterations', type=int, default=2000 * 3)
-parser.add_argument('--dataset', type=str, default='yelp_data', choices=['yelp_data', 'yahoo_data', 'snli_data',
+parser.add_argument('--dataset', type=str, default='yelp_data', choices=['yelp_data', 'yahoo_data', 'snli_data', 'claim_data',
                                                                          'penn_data', 'yelp_polarity', 'imdb_polarity', 'sst-2', 'cola'],
                     help="Dataset to use for training")
 parser.add_argument('--warmup', type=int, default=1000,
@@ -445,7 +445,7 @@ def train(args):
             GDataset = ConditionalGenerationDataset
         else:
             prefix_path = "../data/optimus_dataset"
-            if args.dataset in ['yelp_data']:
+            if args.dataset in ['yelp_data', 'claim_data']:
                 GDataset = ConditionalGenerationDataset
             else:
                 GDataset = GenerationDataset
